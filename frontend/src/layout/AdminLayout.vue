@@ -42,11 +42,20 @@
           </el-menu-item>
           <el-menu-item index="/admin/file">
             <el-icon><Folder /></el-icon>
-            <span>文件审核</span>
+            <template #title>
+              <span class="menu-label">
+                文件审核
+                <span v-if="pendingFileCount > 0" class="menu-dot" />
+              </span>
+            </template>
           </el-menu-item>
           <el-menu-item index="/admin/feedback">
             <el-icon><ChatDotRound /></el-icon>
             <span>反馈管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/operation-log">
+            <el-icon><Document /></el-icon>
+            <span>操作日志</span>
           </el-menu-item>
         </el-menu>
       </aside>
@@ -70,28 +79,59 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElNotification } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { getPendingFileCount } from '@/api/admin'
+import { connectNotificationWs, disconnectNotificationWs } from '@/utils/websocket'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const collapsed = ref(false)
 const refreshKey = ref(0)
+const pendingFileCount = ref(0)
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '')
 const roleLabel = computed(() => (userStore.isSuper ? '超级管理员' : '管理员'))
 
+async function loadPendingCount() {
+  try {
+    const res = await getPendingFileCount()
+    pendingFileCount.value = res.data || 0
+  } catch {
+    pendingFileCount.value = 0
+  }
+}
+
+function handleWsMessage(msg) {
+  loadPendingCount()
+  if (msg?.type === 'admin_file' && msg.title) {
+    ElNotification({ title: msg.title, message: msg.content || '', type: 'warning', duration: 4500 })
+  }
+}
+
 function refresh() {
   refreshKey.value++
+  loadPendingCount()
 }
 
 function handleCommand(command) {
   if (command === 'logout') {
+    disconnectNotificationWs()
     userStore.clear()
     router.push('/login')
   }
 }
+
+onMounted(() => {
+  loadPendingCount()
+  connectNotificationWs(handleWsMessage)
+})
+
+onBeforeUnmount(() => {
+  disconnectNotificationWs()
+})
 </script>

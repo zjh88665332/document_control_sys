@@ -44,8 +44,7 @@ public class NotificationService {
                 userId, STATUS_ACTIVE, UNREAD) > 0;
         boolean feedback = feedbackRepository.countBySubmitterIdAndStatusAndIsReplyRead(
                 userId, STATUS_REPLIED, UNREAD) > 0;
-        boolean file = docFileRepository.countByUploaderIdAndIsDeletedAndStatusAndIsAuditRead(
-                userId, 0, STATUS_APPROVED, UNREAD) > 0;
+        boolean file = docFileRepository.countUnreadAuditResults(userId) > 0;
 
         LocalDateTime lastNoticeReadTime = user.getLastNoticeReadTime();
         boolean notice = lastNoticeReadTime == null
@@ -70,7 +69,7 @@ public class NotificationService {
             case "friend" -> friendRepository.markReceivedAppliesRead(userId);
             case "share" -> shareRecordRepository.markReceivedSharesRead(userId);
             case "feedback" -> feedbackRepository.markRepliesRead(userId);
-            case "file" -> docFileRepository.markAuditApprovedRead(userId);
+            case "file" -> docFileRepository.markAuditResultsRead(userId);
             case "notice" -> {
                 user.setLastNoticeReadTime(LocalDateTime.now());
                 userRepository.save(user);

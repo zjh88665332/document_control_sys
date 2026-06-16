@@ -32,6 +32,7 @@ public class FriendService {
 
     private final FriendRepository friendRepository;
     private final UserRepository userRepository;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional(readOnly = true)
     public List<FriendSearchVO> searchFriends(String keyword) {
@@ -73,6 +74,12 @@ public class FriendService {
         friend.setIsDel(0);
 
         friendRepository.save(friend);
+        webSocketNotificationService.pushToUser(targetId, WsNotificationMessage.builder()
+                .type("friend")
+                .title("新的好友申请")
+                .content(user.getRealName() + " 请求添加您为好友")
+                .targetId(targetId)
+                .build());
     }
 
     @Transactional(readOnly = true)

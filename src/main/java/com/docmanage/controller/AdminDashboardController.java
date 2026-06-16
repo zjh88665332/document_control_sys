@@ -1,6 +1,7 @@
 package com.docmanage.controller;
 
 import com.docmanage.common.ApiResponse;
+import com.docmanage.dto.DashboardChartsVO;
 import com.docmanage.dto.DashboardOverviewVO;
 import com.docmanage.service.AdminDashboardService;
 import lombok.RequiredArgsConstructor;
@@ -18,5 +19,10 @@ public class AdminDashboardController {
     @GetMapping("/overview")
     public ApiResponse<DashboardOverviewVO> overview() {
         return ApiResponse.success(adminDashboardService.getOverview());
+    }
+
+    @GetMapping("/charts")
+    public ApiResponse<DashboardChartsVO> charts() {
+        return ApiResponse.success(adminDashboardService.getCharts());
     }
 }

@@ -39,18 +39,54 @@ CREATE TABLE IF NOT EXISTS `b_file` (
     `status` TINYINT NOT NULL DEFAULT 0 COMMENT '状态（0：待审核，1：通过，2：拒绝）',
     `is_audit_read` TINYINT NOT NULL DEFAULT 1 COMMENT '上传人是否已查看审核结果（0：未查看，1：已查看）',
     `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    `tags` VARCHAR(500) DEFAULT NULL COMMENT '智能标签',
+    `search_content` TEXT DEFAULT NULL COMMENT '可检索文本内容',
     `uploader_id` BIGINT NOT NULL COMMENT '上传人ID',
+    `folder_id` BIGINT DEFAULT NULL COMMENT '所属文件夹ID',
     `upload_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
     `audit_time` DATETIME DEFAULT NULL COMMENT '审核时间',
     `audit_by` BIGINT DEFAULT NULL COMMENT '审核人ID',
+    `audit_reject_reason` VARCHAR(500) DEFAULT NULL COMMENT '审核驳回原因',
     `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已删除（0：未删除，1：已删除）',
     `delete_time` DATETIME DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_file_uuid` (`file_uuid`),
     KEY `idx_uploader_id` (`uploader_id`),
     KEY `idx_status` (`status`),
-    KEY `idx_upload_time` (`upload_time`)
+    KEY `idx_upload_time` (`upload_time`),
+    KEY `idx_folder_id` (`folder_id`),
+    FULLTEXT KEY `ft_search` (`name`, `tags`, `remark`, `search_content`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件表';
+
+-- 7. 用户文件夹表
+CREATE TABLE IF NOT EXISTS `b_folder` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT NOT NULL COMMENT '所属用户ID',
+    `name` VARCHAR(100) NOT NULL COMMENT '文件夹名称',
+    `parent_id` BIGINT NOT NULL DEFAULT 0 COMMENT '父文件夹ID（0为根）',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_parent_id` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户文件夹表';
+
+-- 8. 操作日志表
+CREATE TABLE IF NOT EXISTS `b_operation_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `user_id` BIGINT DEFAULT NULL COMMENT '操作人ID',
+    `username` VARCHAR(50) DEFAULT NULL COMMENT '操作人用户名',
+    `module` VARCHAR(50) NOT NULL COMMENT '模块',
+    `action` VARCHAR(50) NOT NULL COMMENT '操作',
+    `target_id` BIGINT DEFAULT NULL COMMENT '目标ID',
+    `target_name` VARCHAR(255) DEFAULT NULL COMMENT '目标名称',
+    `detail` VARCHAR(500) DEFAULT NULL COMMENT '详情',
+    `ip` VARCHAR(50) DEFAULT NULL COMMENT 'IP地址',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_module` (`module`),
+    KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
 
 -- 3. 好友关系表
 CREATE TABLE IF NOT EXISTS `b_friend` (

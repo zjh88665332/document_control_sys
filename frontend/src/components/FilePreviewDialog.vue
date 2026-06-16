@@ -10,7 +10,16 @@
     <div v-loading="loading" class="preview-body">
       <img v-if="previewType === 'image' && previewUrl" :src="previewUrl" class="preview-image" alt="preview" />
       <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" class="preview-frame" title="pdf" />
-      <video v-else-if="previewType === 'video' && previewUrl" :src="previewUrl" class="preview-video" controls />
+      <video
+        v-else-if="previewType === 'video' && previewUrl"
+        ref="videoRef"
+        :key="previewUrl"
+        :src="previewUrl"
+        class="preview-video"
+        controls
+        preload="metadata"
+        playsinline
+      />
       <pre v-else-if="previewType === 'text'" class="preview-text">{{ textContent }}</pre>
       <el-empty v-else-if="!loading" description="该文件类型暂不支持在线预览" />
     </div>
@@ -42,6 +51,8 @@ const loading = ref(false)
 const previewType = ref('')
 const previewUrl = ref('')
 const textContent = ref('')
+const videoRef = ref(null)
+let loadToken = 0
 
 const visible = computed({
   get: () => props.modelValue,
@@ -69,7 +80,16 @@ function resolvePreviewType(formatOrName) {
   return 'unsupported'
 }
 
+function stopVideo() {
+  const video = videoRef.value
+  if (!video) return
+  video.pause()
+  video.removeAttribute('src')
+  video.load()
+}
+
 function revokeUrl() {
+  stopVideo()
   if (previewUrl.value) {
     window.URL.revokeObjectURL(previewUrl.value)
     previewUrl.value = ''
@@ -88,6 +108,7 @@ async function parseBlobError(blob) {
 }
 
 async function loadPreview() {
+  const token = ++loadToken
   revokeUrl()
   if (!props.fileId && !props.shareId) return
 
@@ -109,6 +130,8 @@ async function loadPreview() {
     const res = props.shareId
       ? await previewShare(props.shareId)
       : await previewFile(props.fileId)
+    if (token !== loadToken) return
+
     const blob = res.data
     if (blob.type?.includes('application/json')) {
       throw new Error(await parseBlobError(blob))
@@ -121,21 +144,30 @@ async function loadPreview() {
       previewUrl.value = window.URL.createObjectURL(blob)
     }
   } catch (error) {
+    if (token !== loadToken) return
     ElMessage.error(error.message || '预览失败')
     visible.value = false
   } finally {
-    loading.value = false
+    if (token === loadToken) {
+      loading.value = false
+    }
   }
 }
 
 function handleClosed() {
+  loadToken++
   revokeUrl()
 }
 
 watch(
   () => [props.modelValue, props.fileId, props.shareId],
   ([show, fileId, shareId]) => {
-    if (show && (fileId || shareId)) {
+    if (!show) {
+      loadToken++
+      revokeUrl()
+      return
+    }
+    if (fileId || shareId) {
       loadPreview()
     }
   }

@@ -17,6 +17,8 @@ public class AdminFileListItemVO {
     private Long size;
     private Integer status;
     private String remark;
+    private String tags;
+    private String auditRejectReason;
     private Long uploaderId;
     private String uploaderName;
     private String uploaderPhone;
@@ -35,6 +37,8 @@ public class AdminFileListItemVO {
                 .size(file.getSize())
                 .status(file.getStatus())
                 .remark(file.getRemark())
+                .tags(file.getTags())
+                .auditRejectReason(file.getAuditRejectReason())
                 .uploaderId(file.getUploaderId())
                 .uploaderName(uploaderName)
                 .uploaderPhone(uploaderPhone)

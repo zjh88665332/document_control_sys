@@ -23,6 +23,7 @@ const routes = [
       { path: 'notice', name: 'Notice', component: () => import('@/views/Notice.vue'), meta: { title: '公告管理' } },
       { path: 'feedback', name: 'Feedback', component: () => import('@/views/Feedback.vue'), meta: { title: '系统反馈' } },
       { path: 'file', name: 'File', component: () => import('@/views/File.vue'), meta: { title: '文件管理' } },
+      { path: 'recycle', name: 'RecycleBin', component: () => import('@/views/RecycleBin.vue'), meta: { title: '回收站' } },
       { path: 'friend', name: 'Friend', component: () => import('@/views/Friend.vue'), meta: { title: '好友管理' } },
       { path: 'share', name: 'Share', component: () => import('@/views/Share.vue'), meta: { title: '分享管理' } },
       { path: 'statistics', name: 'Statistics', component: () => import('@/views/Statistics.vue'), meta: { title: '文件统计' } }
@@ -39,7 +40,8 @@ const routes = [
       { path: 'admin-account', name: 'AdminAccount', component: () => import('@/views/admin/AdminAccount.vue'), meta: { title: '管理员管理', requiresSuper: true } },
       { path: 'notice', name: 'AdminNotice', component: () => import('@/views/admin/Notice.vue'), meta: { title: '公告管理' } },
       { path: 'file', name: 'AdminFile', component: () => import('@/views/admin/File.vue'), meta: { title: '文件审核' } },
-      { path: 'feedback', name: 'AdminFeedback', component: () => import('@/views/admin/Feedback.vue'), meta: { title: '反馈管理' } }
+      { path: 'feedback', name: 'AdminFeedback', component: () => import('@/views/admin/Feedback.vue'), meta: { title: '反馈管理' } },
+      { path: 'operation-log', name: 'AdminOperationLog', component: () => import('@/views/admin/OperationLog.vue'), meta: { title: '操作日志' } }
     ]
   }
 ]

@@ -2,6 +2,9 @@ import request from '@/utils/request'
 import { saveBlob } from '@/api'
 
 export const getDashboardOverview = () => request.get('/admin/dashboard/overview')
+export const getDashboardCharts = () => request.get('/admin/dashboard/charts')
+export const getPendingFileCount = () => request.get('/admin/file/pending-count')
+export const getOperationLogList = (params) => request.get('/admin/operation-log/list', { params })
 
 export const getAdminUserList = (params) => request.get('/admin/user/list', { params })
 export const getAdminUserDetail = (id) => request.get(`/admin/user/${id}`)

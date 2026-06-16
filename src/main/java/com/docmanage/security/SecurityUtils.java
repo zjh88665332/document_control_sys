@@ -20,4 +20,20 @@ public final class SecurityUtils {
     public static Long getCurrentUserId() {
         return getLoginUser().getUserId();
     }
+
+    public static Long getCurrentUserIdOrNull() {
+        try {
+            return getCurrentUserId();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static String getCurrentUsernameOrNull() {
+        try {
+            return getLoginUser().getUsername();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

@@ -12,4 +12,5 @@ import org.springframework.context.annotation.Configuration;
 public class FileStorageProperties {
 
     private String uploadDir;
+    private long maxSize = 209715200L;
 }

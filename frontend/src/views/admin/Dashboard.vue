@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h3>控制台概览</h3>
-        <p class="subtitle">系统核心数据一览</p>
+        <p class="subtitle">系统核心数据与运营分析</p>
       </div>
     </div>
 
@@ -21,25 +21,48 @@
       </el-col>
     </el-row>
 
-    <div class="chart-panel">
+    <el-row :gutter="14" class="chart-row">
+      <el-col :span="12">
+        <div class="chart-panel">
+          <div class="chart-header">
+            <h4>近7日上传趋势</h4>
+          </div>
+          <div ref="trendRef" class="chart-container" />
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="chart-panel">
+          <div class="chart-header">
+            <h4>审核结果分布</h4>
+          </div>
+          <div ref="auditRef" class="chart-container" />
+        </div>
+      </el-col>
+    </el-row>
+
+    <div class="chart-panel" style="margin-top: 14px">
       <div class="chart-header">
-        <h4>数据柱形图</h4>
-        <span class="chart-tip">各指标数量对比</span>
+        <h4>上传量 Top 用户</h4>
       </div>
-      <div ref="chartRef" class="chart-container" />
+      <div ref="topRef" class="chart-container" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import { getDashboardOverview } from '@/api/admin'
+import { getDashboardCharts, getDashboardOverview } from '@/api/admin'
 
 const loading = ref(false)
 const data = ref({})
-const chartRef = ref(null)
-let chartInstance = null
+const charts = ref({})
+const trendRef = ref(null)
+const auditRef = ref(null)
+const topRef = ref(null)
+let trendChart = null
+let auditChart = null
+let topChart = null
 
 const cards = computed(() => [
   { label: '普通用户', value: data.value.userCount ?? 0, color: '#009688' },
@@ -50,76 +73,79 @@ const cards = computed(() => [
   { label: '已通过文件', value: data.value.approvedFileCount ?? 0, color: '#26a69a' }
 ])
 
-function renderChart() {
-  if (!chartRef.value) return
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value)
-  }
+function renderTrendChart() {
+  if (!trendRef.value) return
+  if (!trendChart) trendChart = echarts.init(trendRef.value)
+  trendChart.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: 'category', data: charts.value.uploadTrendDates || [] },
+    yAxis: { type: 'value', minInterval: 1 },
+    series: [{
+      name: '上传数',
+      type: 'line',
+      smooth: true,
+      areaStyle: { opacity: 0.15 },
+      itemStyle: { color: '#009688' },
+      data: charts.value.uploadTrendCounts || []
+    }]
+  })
+}
 
-  const labels = cards.value.map((item) => item.label)
-  const values = cards.value.map((item) => item.value)
-  const colors = cards.value.map((item) => item.color)
+function renderAuditChart() {
+  if (!auditRef.value) return
+  if (!auditChart) auditChart = echarts.init(auditRef.value)
+  auditChart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0 },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '65%'],
+      data: [
+        { name: '已通过', value: charts.value.approvedCount || 0, itemStyle: { color: '#26a69a' } },
+        { name: '已拒绝', value: charts.value.rejectedCount || 0, itemStyle: { color: '#ef5350' } },
+        { name: '待审核', value: charts.value.pendingCount || 0, itemStyle: { color: '#ffa726' } }
+      ]
+    }]
+  })
+}
 
-  chartInstance.setOption({
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      backgroundColor: 'rgba(255,255,255,0.96)',
-      borderColor: '#e4e7ed',
-      textStyle: { color: '#303133' }
-    },
-    grid: { left: 48, right: 24, top: 24, bottom: 40 },
-    xAxis: {
-      type: 'category',
-      data: labels,
-      axisLine: { lineStyle: { color: '#dcdfe6' } },
-      axisLabel: { color: '#606266', interval: 0, rotate: 0, fontSize: 12 }
-    },
-    yAxis: {
-      type: 'value',
-      minInterval: 1,
-      splitLine: { lineStyle: { color: '#eef2f6', type: 'dashed' } },
-      axisLabel: { color: '#909399' }
-    },
-    series: [
-      {
-        name: '数量',
-        type: 'bar',
-        barWidth: '42%',
-        data: values.map((val, idx) => ({
-          value: val,
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: colors[idx] },
-              { offset: 1, color: `${colors[idx]}99` }
-            ]),
-            borderRadius: [6, 6, 0, 0]
-          }
-        }))
-      }
-    ]
+function renderTopChart() {
+  if (!topRef.value) return
+  if (!topChart) topChart = echarts.init(topRef.value)
+  topChart.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 80, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: 'value', minInterval: 1 },
+    yAxis: { type: 'category', data: charts.value.topUploaderNames || [] },
+    series: [{
+      type: 'bar',
+      data: charts.value.topUploaderCounts || [],
+      itemStyle: { color: '#42a5f5', borderRadius: [0, 4, 4, 0] }
+    }]
   })
 }
 
 function handleResize() {
-  chartInstance?.resize()
+  trendChart?.resize()
+  auditChart?.resize()
+  topChart?.resize()
 }
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await getDashboardOverview()
-    data.value = res.data
+    const [overviewRes, chartsRes] = await Promise.all([getDashboardOverview(), getDashboardCharts()])
+    data.value = overviewRes.data
+    charts.value = chartsRes.data
     await nextTick()
-    renderChart()
+    renderTrendChart()
+    renderAuditChart()
+    renderTopChart()
   } finally {
     loading.value = false
   }
 }
-
-watch(cards, () => {
-  nextTick(() => renderChart())
-}, { deep: true })
 
 onMounted(() => {
   loadData()
@@ -128,8 +154,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  chartInstance?.dispose()
-  chartInstance = null
+  trendChart?.dispose()
+  auditChart?.dispose()
+  topChart?.dispose()
 })
 </script>
 
@@ -175,7 +202,6 @@ onBeforeUnmount(() => {
 .stat-card.clickable:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--accent) 40%, white);
 }
 
 .stat-value {
@@ -191,6 +217,10 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+.chart-row {
+  margin-top: 4px;
+}
+
 .chart-panel {
   padding: 20px;
   border-radius: var(--radius);
@@ -198,26 +228,14 @@ onBeforeUnmount(() => {
   background: #fafbfc;
 }
 
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
 .chart-header h4 {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 15px;
   font-weight: 600;
 }
 
-.chart-tip {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
 .chart-container {
   width: 100%;
-  height: 340px;
+  height: 300px;
 }
 </style>

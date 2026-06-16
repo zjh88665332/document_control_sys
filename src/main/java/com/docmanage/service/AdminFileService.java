@@ -4,6 +4,7 @@ import com.docmanage.common.BusinessException;
 import com.docmanage.dto.AdminFileListItemVO;
 import com.docmanage.dto.AuditFileRequest;
 import com.docmanage.dto.PageResult;
+import com.docmanage.dto.WsNotificationMessage;
 import com.docmanage.entity.DocFile;
 import com.docmanage.entity.User;
 import com.docmanage.repository.DocFileRepository;
@@ -36,8 +37,12 @@ public class AdminFileService {
     private final DocFileRepository docFileRepository;
     private final ShareRecordRepository shareRecordRepository;
     private final UserRepository userRepository;
+    private static final int STATUS_REJECTED = 2;
+
     private final AdminAuthSupport adminAuth;
     private final DocFileService docFileService;
+    private final OperationLogService operationLogService;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional(readOnly = true)
     public PageResult<AdminFileListItemVO> listFiles(String name, Integer status, Long uploaderId,
@@ -85,13 +90,35 @@ public class AdminFileService {
             throw new BusinessException(400, "该文件已审核");
         }
 
+        if (request.getStatus() != null && request.getStatus() == STATUS_REJECTED) {
+            if (!StringUtils.hasText(request.getRejectReason())) {
+                throw new BusinessException("请填写驳回原因");
+            }
+            file.setAuditRejectReason(request.getRejectReason().trim());
+        } else {
+            file.setAuditRejectReason(null);
+        }
+
         file.setStatus(request.getStatus());
         file.setAuditBy(auditor.getId());
         file.setAuditTime(LocalDateTime.now());
-        if (request.getStatus() != null && request.getStatus() == STATUS_APPROVED) {
-            file.setIsAuditRead(0);
-        }
+        file.setIsAuditRead(0);
         docFileRepository.save(file);
+
+        String action = request.getStatus() == STATUS_APPROVED ? "审核通过" : "审核驳回";
+        operationLogService.log("文件审核", action, file.getId(), file.getName(),
+                request.getStatus() == STATUS_REJECTED ? request.getRejectReason() : "审核通过");
+
+        String title = request.getStatus() == STATUS_APPROVED ? "文件审核通过" : "文件审核驳回";
+        String content = request.getStatus() == STATUS_APPROVED
+                ? "您的文件「" + file.getName() + "」已通过审核"
+                : "您的文件「" + file.getName() + "」被驳回：" + request.getRejectReason();
+        webSocketNotificationService.pushToUser(file.getUploaderId(), WsNotificationMessage.builder()
+                .type("file")
+                .title(title)
+                .content(content)
+                .targetId(file.getId())
+                .build());
     }
 
     @Transactional
@@ -108,6 +135,7 @@ public class AdminFileService {
             share.setStatus(0);
             shareRecordRepository.save(share);
         });
+        operationLogService.log("文件审核", "管理员删除", id, file.getName(), "管理员删除文件");
     }
 
     @Transactional(readOnly = true)

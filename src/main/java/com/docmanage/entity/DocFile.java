@@ -43,6 +43,9 @@ public class DocFile {
     @Column(name = "uploader_id", nullable = false)
     private Long uploaderId;
 
+    @Column(name = "folder_id")
+    private Long folderId;
+
     @Column(name = "upload_time", nullable = false)
     private LocalDateTime uploadTime;
 
@@ -51,6 +54,15 @@ public class DocFile {
 
     @Column(name = "audit_by")
     private Long auditBy;
+
+    @Column(name = "audit_reject_reason", length = 500)
+    private String auditRejectReason;
+
+    @Column(length = 500)
+    private String tags;
+
+    @Column(name = "search_content", columnDefinition = "TEXT")
+    private String searchContent;
 
     @Column(name = "is_deleted", nullable = false, columnDefinition = "TINYINT")
     private Integer isDeleted = 0;

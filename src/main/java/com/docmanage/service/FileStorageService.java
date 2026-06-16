@@ -24,8 +24,10 @@ public class FileStorageService {
     );
 
     private final Path uploadRoot;
+    private final long maxFileSize;
 
     public FileStorageService(FileStorageProperties properties) {
+        this.maxFileSize = properties.getMaxSize() > 0 ? properties.getMaxSize() : 209715200L;
         this.uploadRoot = Paths.get(properties.getUploadDir()).toAbsolutePath().normalize();
         try {
             Files.createDirectories(uploadRoot);
@@ -61,6 +63,9 @@ public class FileStorageService {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("文件不能为空");
         }
+        if (file.getSize() > maxFileSize) {
+            throw new BusinessException("文件大小不能超过 " + formatSize(maxFileSize));
+        }
 
         String contentType = file.getContentType();
         if (allowedTypes != null && (contentType == null || !allowedTypes.contains(contentType.toLowerCase()))) {
@@ -91,6 +96,21 @@ public class FileStorageService {
     public record StoredFile(String path, String originalName, String format, long size) {
     }
 
+    public void deletePhysicalFile(String relativePath) {
+        if (!StringUtils.hasText(relativePath)) {
+            return;
+        }
+        Path filePath = uploadRoot.resolve(relativePath).normalize();
+        if (!filePath.startsWith(uploadRoot)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(filePath);
+        } catch (IOException ignored) {
+            // 物理删除失败不影响主流程
+        }
+    }
+
     public void deleteIfExists(String avatarUrl) {
         if (!StringUtils.hasText(avatarUrl) || !avatarUrl.startsWith("/uploads/")) {
             return;
@@ -101,6 +121,13 @@ public class FileStorageService {
         } catch (IOException ignored) {
             // 删除旧头像失败不影响主流程
         }
+    }
+
+    private String formatSize(long bytes) {
+        if (bytes >= 1024 * 1024) {
+            return (bytes / (1024 * 1024)) + "MB";
+        }
+        return (bytes / 1024) + "KB";
     }
 
     private String getExtension(String filename) {

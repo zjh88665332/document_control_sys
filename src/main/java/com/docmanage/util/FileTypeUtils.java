@@ -34,10 +34,10 @@ public final class FileTypeUtils {
     }
 
     public static String resolveCategory(String extension) {
-        if (!StringUtils.hasText(extension)) {
+        String ext = normalizeExtension(extension);
+        if (!StringUtils.hasText(ext)) {
             return "document";
         }
-        String ext = extension.toLowerCase();
         if (DOCUMENT.contains(ext)) {
             return "document";
         }

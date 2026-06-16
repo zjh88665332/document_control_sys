@@ -53,6 +53,11 @@ request.interceptors.response.use(
       }
     } else if (status === 404) {
       console.warn('接口不存在:', url)
+    } else if (error.code === 'ECONNABORTED') {
+      ElMessage.error('上传超时，请检查网络或尝试较小的文件')
+    } else if (!error.response && error.message === 'Network Error') {
+      const isUpload = url.includes('/upload')
+      ElMessage.error(isUpload ? '上传失败：文件可能过大或连接中断，单文件最大 200MB' : '网络连接失败')
     } else {
       ElMessage.error(msg || error.message || '网络错误')
     }

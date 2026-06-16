@@ -15,15 +15,27 @@ export const getNoticeList = (params) => request.get('/notice/list', { params })
 export const submitFeedback = (data) => request.post('/feedback', data)
 export const getFeedbackList = (params) => request.get('/feedback/list', { params })
 
-export const uploadFile = (formData) =>
+export const MAX_UPLOAD_SIZE = 200 * 1024 * 1024
+
+export const uploadFile = (formData, onUploadProgress) =>
   request.post('/file/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000,
+    onUploadProgress
   })
 export const batchUploadFiles = (formData) =>
   request.post('/file/upload/batch', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
   })
 export const getFileList = (params) => request.get('/file/list', { params })
+export const getRecycleBinList = (params) => request.get('/file/recycle/list', { params })
+export const restoreFile = (id) => request.put(`/file/recycle/${id}/restore`)
+export const permanentDeleteFile = (id) => request.delete(`/file/recycle/${id}`)
+export const moveFile = (id, data) => request.put(`/file/${id}/move`, data)
+export const getFolderTree = () => request.get('/folder/tree')
+export const createFolder = (data) => request.post('/folder', data)
+export const deleteFolder = (id) => request.delete(`/folder/${id}`)
 export const deleteFile = (id) => request.delete(`/file/${id}`)
 export const downloadFile = (id) =>
   request.get(`/file/${id}/download`, { responseType: 'blob' })

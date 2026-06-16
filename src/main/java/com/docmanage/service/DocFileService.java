@@ -2,13 +2,16 @@ package com.docmanage.service;
 
 import com.docmanage.common.BusinessException;
 import com.docmanage.dto.*;
+import com.docmanage.dto.WsNotificationMessage;
 import com.docmanage.entity.DocFile;
 import com.docmanage.entity.User;
 import com.docmanage.repository.DocFileRepository;
 import com.docmanage.repository.ShareRecordRepository;
 import com.docmanage.repository.UserRepository;
 import com.docmanage.security.SecurityUtils;
+import com.docmanage.util.FileTagUtils;
 import com.docmanage.util.FileTypeUtils;
+import com.docmanage.util.TextExtractUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -43,25 +46,40 @@ public class DocFileService {
     private final ShareRecordRepository shareRecordRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final FolderService folderService;
+    private final OperationLogService operationLogService;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional
-    public FileUploadVO upload(MultipartFile file, String customName, String remark) {
+    public FileUploadVO upload(MultipartFile file, String customName, String remark, Long folderId) {
         User user = findCurrentUser();
+        folderService.validateFolderOwnership(folderId, user.getId());
         FileStorageService.StoredFile stored = fileStorageService.storeDocument(file);
 
+        String displayName = resolveDisplayName(customName, stored.originalName(), stored.format());
         DocFile docFile = new DocFile();
         docFile.setFileUuid(UUID.randomUUID().toString().replace("-", ""));
-        docFile.setName(resolveDisplayName(customName, stored.originalName(), stored.format()));
+        docFile.setName(displayName);
         docFile.setFormat(stored.format());
         docFile.setSize(stored.size());
         docFile.setPath(stored.path());
         docFile.setRemark(remark);
+        docFile.setTags(FileTagUtils.generateTags(displayName, stored.format(), remark));
+        docFile.setSearchContent(TextExtractUtils.extractSearchContent(file, stored.format()));
+        docFile.setFolderId(folderId != null && folderId > 0 ? folderId : null);
         docFile.setUploaderId(user.getId());
         docFile.setStatus(0);
         docFile.setIsAuditRead(1);
         docFile.setIsDeleted(0);
 
         DocFile saved = docFileRepository.save(docFile);
+        operationLogService.log("文件", "上传", saved.getId(), saved.getName(), "上传文件等待审核");
+        webSocketNotificationService.pushToAdmins(WsNotificationMessage.builder()
+                .type("admin_file")
+                .title("新文件待审核")
+                .content(user.getRealName() + " 上传了「" + saved.getName() + "」")
+                .targetId(saved.getId())
+                .build());
         return new FileUploadVO(saved.getId(), saved.getName());
     }
 
@@ -75,7 +93,7 @@ public class DocFileService {
         int failCount = 0;
         for (MultipartFile file : files) {
             try {
-                upload(file, null, null);
+                upload(file, null, null, null);
                 successCount++;
             } catch (Exception e) {
                 failCount++;
@@ -85,12 +103,56 @@ public class DocFileService {
     }
 
     @Transactional(readOnly = true)
-    public PageResult<FileListItemVO> listMyFiles(String name, int pageNum, int pageSize) {
+    public PageResult<FileListItemVO> listMyFiles(String keyword, Long folderId, int pageNum, int pageSize) {
         User user = findCurrentUser();
-        String nameFilter = StringUtils.hasText(name) ? name : null;
+        String keywordFilter = StringUtils.hasText(keyword) ? keyword : null;
         Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
-        Page<DocFile> page = docFileRepository.findByUploaderAndName(user.getId(), nameFilter, pageable);
+        Page<DocFile> page = docFileRepository.findByUploaderAndKeyword(
+                user.getId(), folderId, keywordFilter, pageable);
         return PageResult.from(page, FileListItemVO::from);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResult<FileListItemVO> listRecycleBin(int pageNum, int pageSize) {
+        User user = findCurrentUser();
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+        Page<DocFile> page = docFileRepository.findRecycleBin(user.getId(), pageable);
+        return PageResult.from(page, FileListItemVO::from);
+    }
+
+    @Transactional
+    public void restoreFile(Long id) {
+        User user = findCurrentUser();
+        DocFile file = docFileRepository.findByIdAndUploaderIdAndIsDeleted(id, user.getId(), 1)
+                .orElseThrow(() -> new BusinessException(404, "文件不存在"));
+
+        file.setIsDeleted(0);
+        file.setDeleteTime(null);
+        docFileRepository.save(file);
+        operationLogService.log("回收站", "恢复", id, file.getName(), "从回收站恢复文件");
+    }
+
+    @Transactional
+    public void permanentDelete(Long id) {
+        User user = findCurrentUser();
+        DocFile file = docFileRepository.findByIdAndUploaderIdAndIsDeleted(id, user.getId(), 1)
+                .orElseThrow(() -> new BusinessException(404, "文件不存在"));
+
+        fileStorageService.deletePhysicalFile(file.getPath());
+        docFileRepository.delete(file);
+        operationLogService.log("回收站", "彻底删除", id, file.getName(), "永久删除文件");
+    }
+
+    @Transactional
+    public void moveFile(Long id, Long folderId) {
+        User user = findCurrentUser();
+        DocFile file = docFileRepository.findByIdAndUploaderIdAndIsDeleted(id, user.getId(), 0)
+                .orElseThrow(() -> new BusinessException(404, "文件不存在"));
+
+        folderService.validateFolderOwnership(folderId, user.getId());
+        file.setFolderId(folderId != null && folderId > 0 ? folderId : null);
+        docFileRepository.save(file);
+        operationLogService.log("文件", "移动", id, file.getName(), "移动文件到文件夹");
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +194,7 @@ public class DocFileService {
             share.setStatus(0);
             shareRecordRepository.save(share);
         });
+        operationLogService.log("文件", "删除", id, file.getName(), "移入回收站");
     }
 
     @Transactional(readOnly = true)

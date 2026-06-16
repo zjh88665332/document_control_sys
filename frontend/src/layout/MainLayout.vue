@@ -99,10 +99,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElNotification } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useNotificationStore } from '@/stores/notification'
+import { connectNotificationWs, disconnectNotificationWs } from '@/utils/websocket'
 
 const route = useRoute()
 const router = useRouter()
@@ -122,6 +124,13 @@ const badgeTypeMap = {
   '/share': 'share'
 }
 
+function handleWsMessage(msg) {
+  notificationStore.fetchBadges()
+  if (msg?.title) {
+    ElNotification({ title: msg.title, message: msg.content || '', type: 'info', duration: 4500 })
+  }
+}
+
 onMounted(async () => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -131,11 +140,16 @@ onMounted(async () => {
       router.push('/login')
     })
     await notificationStore.fetchBadges()
+    connectNotificationWs(handleWsMessage)
     const type = badgeTypeMap[route.path]
     if (type) {
       await notificationStore.markRead(type)
     }
   }
+})
+
+onBeforeUnmount(() => {
+  disconnectNotificationWs()
 })
 
 watch(

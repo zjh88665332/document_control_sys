@@ -5,6 +5,7 @@ import com.docmanage.dto.CreateShareRequest;
 import com.docmanage.dto.PageResult;
 import com.docmanage.dto.ReceivedShareVO;
 import com.docmanage.dto.SentShareVO;
+import com.docmanage.dto.WsNotificationMessage;
 import com.docmanage.entity.DocFile;
 import com.docmanage.entity.ShareRecord;
 import com.docmanage.entity.User;
@@ -37,6 +38,7 @@ public class ShareService {
     private final UserRepository userRepository;
     private final DocFileService docFileService;
     private final FriendService friendService;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional
     public void shareFile(CreateShareRequest request) {
@@ -68,6 +70,12 @@ public class ShareService {
         share.setIsRead(0);
 
         shareRecordRepository.save(share);
+        webSocketNotificationService.pushToUser(request.getReceiverId(), WsNotificationMessage.builder()
+                .type("share")
+                .title("收到文件分享")
+                .content(user.getRealName() + " 向您分享了「" + file.getName() + "」")
+                .targetId(request.getFileId())
+                .build());
     }
 
     @Transactional(readOnly = true)

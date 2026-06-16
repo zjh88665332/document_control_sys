@@ -21,8 +21,9 @@ public class FileController {
     public ApiResponse<FileUploadVO> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "name", required = false) String name,
-            @RequestParam(value = "remark", required = false) String remark) {
-        FileUploadVO result = docFileService.upload(file, name, remark);
+            @RequestParam(value = "remark", required = false) String remark,
+            @RequestParam(value = "folderId", required = false) Long folderId) {
+        FileUploadVO result = docFileService.upload(file, name, remark, folderId);
         return ApiResponse.success("上传成功，等待审核", result);
     }
 
@@ -33,10 +34,36 @@ public class FileController {
 
     @GetMapping("/list")
     public ApiResponse<PageResult<FileListItemVO>> list(
-            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long folderId,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
-        return ApiResponse.success(docFileService.listMyFiles(name, pageNum, pageSize));
+        return ApiResponse.success(docFileService.listMyFiles(keyword, folderId, pageNum, pageSize));
+    }
+
+    @GetMapping("/recycle/list")
+    public ApiResponse<PageResult<FileListItemVO>> recycleList(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return ApiResponse.success(docFileService.listRecycleBin(pageNum, pageSize));
+    }
+
+    @PutMapping("/recycle/{id}/restore")
+    public ApiResponse<Void> restore(@PathVariable Long id) {
+        docFileService.restoreFile(id);
+        return ApiResponse.success("恢复成功");
+    }
+
+    @DeleteMapping("/recycle/{id}")
+    public ApiResponse<Void> permanentDelete(@PathVariable Long id) {
+        docFileService.permanentDelete(id);
+        return ApiResponse.success("彻底删除成功");
+    }
+
+    @PutMapping("/{id}/move")
+    public ApiResponse<Void> move(@PathVariable Long id, @RequestBody MoveFileRequest request) {
+        docFileService.moveFile(id, request.getFolderId());
+        return ApiResponse.success("移动成功");
     }
 
     @GetMapping("/{id}/download")

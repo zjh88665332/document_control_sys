@@ -4,6 +4,7 @@ import com.docmanage.common.BusinessException;
 import com.docmanage.dto.AdminFeedbackListItemVO;
 import com.docmanage.dto.PageResult;
 import com.docmanage.dto.ReplyFeedbackRequest;
+import com.docmanage.dto.WsNotificationMessage;
 import com.docmanage.entity.Feedback;
 import com.docmanage.entity.User;
 import com.docmanage.repository.FeedbackRepository;
@@ -30,6 +31,7 @@ public class AdminFeedbackService {
     private final FeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
     private final AdminAuthSupport adminAuth;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional(readOnly = true)
     public PageResult<AdminFeedbackListItemVO> listFeedbacks(Integer status, String subject,
@@ -71,6 +73,12 @@ public class AdminFeedbackService {
         feedback.setStatus(1);
         feedback.setIsReplyRead(0);
         feedbackRepository.save(feedback);
+        webSocketNotificationService.pushToUser(feedback.getSubmitterId(), WsNotificationMessage.builder()
+                .type("feedback")
+                .title("反馈已回复")
+                .content("您的反馈「" + feedback.getSubject() + "」已收到回复")
+                .targetId(feedback.getId())
+                .build());
     }
 
     private Map<Long, User> loadSubmitters(List<Feedback> feedbacks) {
